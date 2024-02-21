@@ -36,7 +36,7 @@ Proof
   rw[]
 QED
 
-Theorem epic_imp_surj:
+Theorem epic_imp_surj_bool:
   (!g h. (g: 'b -> bool) o f = h o f ==> g = h) ==>
   (!y. ?z. f z = y)
 Proof

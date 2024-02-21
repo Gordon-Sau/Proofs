@@ -7,14 +7,6 @@ CoInductive not_mem:
   (!x y xs. not_mem x xs /\ y <> x ==> not_mem x (y:::xs))
 End
 
-Datatype:
-  A= A' (bool -> A) | B
-End
-
-Datatype:
-  A = L A | R A | B
-End
-
 Definition ones_def:
   ones = LUNFOLD (\x. SOME ((),1)) ()
 End
