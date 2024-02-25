@@ -1,4 +1,4 @@
-# Some proofs written in Dafny
+# Some proofs written in Dafny and HOL4
 
 ## Simple ones
 - dafny/deque.dfy (an implementation of deque in dafny)
