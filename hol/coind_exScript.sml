@@ -2,22 +2,29 @@ open bossLib whileTheory pred_setTheory relationTheory optionTheory;
 open arithmeticTheory numLib BasicProvers dep_rewrite;
 open listTheory llistTheory itreeTauTheory;
 
-(*
-* Inductive set X is the least fixed point such that X=F(X)
+(* 3 ways to think about Inductive sets.
+* 1. the least fixed point such that X=F(X)
+* 2. the smallest set that is closed forward (F(X) ⊆ X) (by Knaster-Tarski Thm)
+* 3. the limit of keep applying F to {} (by Kleene fixed point thm)
+* (keep adding elements to {} until it is closed)
 * *)
 
-(* F(X) = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X}*)
-(* F(X) ⊆ X = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X} ⊆ X *)
-(* [] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X *)
-(* This is the smallest set S that satisfies
-* [] ∈ S ∧ (∀x xs. EVEN x ∧ xs ∈ S ⇒ x::xs ∈ S) 
-*)
 Inductive even_list:
 [~empty]
   even_list []
 [~cons]
   (∀x xs. EVEN x ∧ even_list xs ⇒ even_list (x::xs))
 End
+(* F(X) = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X} *)
+(* F(X) ⊆ X = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X} ⊆ X *)
+(* = [] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X *)
+(* X ⊆ F(X) = X ⊆ ({[]} ∪ {x | x = y::ys ∧ EVEN y ∧ ys ∈ X}) *)
+(* = ∀x. x ∈ X  ⇒ x = [] ∨ ∃y ys. x = y::ys ∧ EVEN y ∧ ys ∈ X *)
+
+(* The smallest set S that satifies F(S) ⊆ S *)
+(* ∀X. F(X) ⊆ X ⇒ S ⊆ X *)
+(* ∀X. ([] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X) ⇒
+* (∀x. x ∈ S ⇒ x ∈ X) *)
 
 Theorem even_list_example:
   even_list [0;2;4;6;8]
@@ -76,16 +83,24 @@ Proof
 QED
 
 (* so how should define even_llist? *)
-(* X ⊆ F(X) = X ⊆ {[||]} ∪ {y | y = x:::xs ∧ EVEN x ∧ xs ∈ X} *)
-(* This is the largest set S that satisfy
-* xs ∈ S ⇒ xs = [||] ∨ (∃y ys. xs = y::ys ∧ ys ∈ S ∧ EVEN y)
-* We keep removing elements that does not satisfy the rule from UNIV *)
 CoInductive even_llist:
 [~empty]
   even_llist [||]
 [~cons]
   (∀x xs. EVEN x ∧ even_llist xs ⇒ even_llist (x:::xs))
 End
+
+(* 3 ways to think about CoInductive sets.
+* 1. the greatest fixed point such that X=F(X)
+* 2. the largest set that is closed backward (X ⊆ F(X)) (by Knaster-Tarski Thm)
+* 3. the limit of keep applying F to UNIV (by Kleene fixed point thm)
+* keep removing elements that does not satisfy the rule from UNIV
+* until it is closed *)
+
+(* The largest set S that satifies S ⊆ F(S) *)
+(* ∀X. X ⊆ F(X) ⇒ X ⊆ S *)
+(* ∀X. (∀x. x ∈ X ⇒ x = [||] ∨ ∃y ys. x = y:::ys ∧ EVEN y ∧ ys ∈ X) ⇒
+* (∀x. x ∈ X ⇒ x ∈ S) *)
 
 Theorem even_list_example:
   even_llist [|0;2;4;6;8|]
@@ -217,6 +232,8 @@ Proof
   simp[LNTH_THM]
 QED
 
+(* Is this a coincidence? *)
+(* COMPL(gfp(f)) = lfp(COMPL o f o COMPL) *)
 Theorem mem_not_mem:
   mem x l <=> ~(not_mem x l)
 Proof
@@ -276,6 +293,7 @@ Proof
   simp[]
 QED
 
+(* use inductive to proof *)
 Theorem not_mem_inc2:
   ∀n. ¬EVEN n ⇒ not_mem n (inc2 0)
 Proof
@@ -436,15 +454,6 @@ Proof
   Cases_on `t'` >>
   simp[odds,merge]
 QED
-
-(*
-Theorem merge_odds_evens:
-  ∀l. merge (odds l) (evens l) = l
-Proof
-  simp[LNTH_EQ] >>
-  Induct_on `n` >>
-QED
-*)
 
 LAPPEND;
 
@@ -807,5 +816,28 @@ Proof
     fs[] >>
     metis_tac[llist_wbisim_refl]
   )
+QED
+
+Theorem even_ollist_LAPPEND:
+  even_ollist l ∧ even_ollist l' ⇒
+  even_ollist (LAPPEND l l')
+Proof
+  rpt strip_tac >>
+  irule even_ollist_coind >>
+  qexists `\ll. ?l l'. ll = LAPPEND l l' ∧ even_ollist l ∧ even_ollist l'` >>
+  rw[]
+  >- metis_tac[] >>
+  ntac 2 $ last_x_assum kall_tac >>
+  last_x_assum $ strip_assume_tac o
+    SRULE[Once even_ollist_cases] >>
+  fs[]
+  >- (
+    last_x_assum $ strip_assume_tac o
+      SRULE[Once even_ollist_cases] >>
+    simp[] >>
+    qexistsl [`[||]`,`xs`] >>
+    simp[even_ollist_rules]
+  ) >>
+  metis_tac[]  
 QED
 
