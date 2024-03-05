@@ -15,6 +15,10 @@ Inductive even_list:
 [~cons]
   (∀x xs. EVEN x ∧ even_list xs ⇒ even_list (x::xs))
 End
+even_list_rules;
+even_list_cases;
+even_list_ind;
+
 (* F(X) = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X} *)
 (* F(X) ⊆ X = {[]} ∪ {y | y = x:: xs ∧ EVEN x ∧ xs ∈ X} ⊆ X *)
 (* = [] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X *)
@@ -22,7 +26,7 @@ End
 (* = ∀x. x ∈ X  ⇒ x = [] ∨ ∃y ys. x = y::ys ∧ EVEN y ∧ ys ∈ X *)
 
 (* The smallest set S that satifies F(S) ⊆ S *)
-(* ∀X. F(X) ⊆ X ⇒ S ⊆ X *)
+(* ∀X. F(X) ⊆ X ⇒ S ⊆ X *) (* This is the induction principle *)
 (* ∀X. ([] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X) ⇒
 * (∀x. x ∈ S ⇒ x ∈ X) *)
 
@@ -34,20 +38,33 @@ Proof
   irule even_list_empty
 QED
 
+(* lets use llist (coinductiv/lazy list) instead *)
 Inductive even_llist:
 [~empty]
-  even_llist [||]
+  even_llist [||] (* empty llist *)
 [~cons]
   (∀x xs. EVEN x ∧ even_llist xs ⇒ even_llist (x:::xs))
+  (* ::: is the cons for llist *)
 End
 
-Theorem even_list_example:
+(* should be similar to even_list as the predicate is essentially the same *)
+Theorem even_llist_example:
   even_llist [|0;2;4;6;8|]
 Proof
   rpt $ irule_at Any even_llist_cons >>
   simp[] >>
   irule even_llist_empty
 QED
+
+(* LUNFOLD is a way to create corecursive function.
+* It is essentially unfold in Haskell.
+* The second argument can be treated as the initial state.
+* The first argument is applied on the initial state and
+* return the next state, and the head of the list.
+* We keep applying the function until we gets to NONE.
+* This allows the list to be infinite as the function 
+* may never return NONE *)
+LUNFOLD;
 
 Definition twos_def:
   twos = LUNFOLD (λu. SOME ((),2)) ()
@@ -61,13 +78,12 @@ Proof
   simp[Once LUNFOLD]
 QED
 
-(* this is not true because `twos` never hits [||] *)
-(*
+(* Try to prove this first *)
 Theorem even_llist_twos:
   even_llist twos
 Proof
 QED
-*)
+(* It turns out that you cannot prove it. Why? *)
 
 (* In fact, we can use induction to prove that `twos` 
 * is not a even_llist *)
@@ -89,20 +105,26 @@ CoInductive even_llist:
 [~cons]
   (∀x xs. EVEN x ∧ even_llist xs ⇒ even_llist (x:::xs))
 End
+even_llist_rules;
+even_llist_cases;
+even_llist_coind;
+(* What theorems does this gives you?
+* How is this different from the inductive version? *)
 
 (* 3 ways to think about CoInductive sets.
 * 1. the greatest fixed point such that X=F(X)
 * 2. the largest set that is closed backward (X ⊆ F(X)) (by Knaster-Tarski Thm)
-* 3. the limit of keep applying F to UNIV (by Kleene fixed point thm)
-* keep removing elements that does not satisfy the rule from UNIV
+* 3. keep removing elements that does not satisfy the rule from UNIV
 * until it is closed *)
 
 (* The largest set S that satifies S ⊆ F(S) *)
-(* ∀X. X ⊆ F(X) ⇒ X ⊆ S *)
+(* ∀X. X ⊆ F(X) ⇒ X ⊆ S *) (* This is the coinduction principle *)
 (* ∀X. (∀x. x ∈ X ⇒ x = [||] ∨ ∃y ys. x = y:::ys ∧ EVEN y ∧ ys ∈ X) ⇒
 * (∀x. x ∈ X ⇒ x ∈ S) *)
-
-Theorem even_list_example:
+(* A coinductive proof is essentially finding an X such that
+* the thing you are proving is in X such and
+* ∀x. x ∈ X ⇒ x = [||] ∨ ∃y ys. x = y:::ys ∧ EVEN y ∧ ys ∈ X *)
+Theorem even_llist_example:
   even_llist [|0;2;4;6;8|]
 Proof
   rpt $ irule_at Any even_llist_cons >>
@@ -110,6 +132,8 @@ Proof
   irule even_llist_empty
 QED
 
+(* hint: use even_llist_coind *)
+(* Which set that is closed-backward should we choose? *)
 Theorem even_llist_twos:
   even_llist twos
 Proof
@@ -132,6 +156,7 @@ Proof
   simp[Once LUNFOLD]
 QED
 
+(* which set should we use? Is {inc2 0} closed-backward *)
 Theorem even_llist_inc2:
   even_llist (inc2 0)
 Proof
@@ -145,20 +170,7 @@ Proof
   fs[EVEN_MOD2]
 QED
 
-(*
-Theorem LDROP_inc2:
-  ∀m. THE (LDROP n $ inc2 m) = inc2 (2 * n + m)
-Proof
-  Induct_on `n`
-  >- simp[inc2]
-  >- (
-    gen_tac >>
-    simp[LDROP,Once $ GSYM inc2] >>
-    AP_TERM_TAC >>
-    DECIDE_TAC)
-QED
-*)
-
+(* This is essentially MEM, but in a predicate form *)
 Inductive mem:
 [~hd]
   (!x xs. mem x (x:::xs))
@@ -166,19 +178,22 @@ Inductive mem:
   (!x y xs. mem x xs ==> mem x (y:::xs))
 End
 
-(* (x,ys) ∈ S ⇒
-* (∃xs. ys = x:::xs) ∨
-* (∃y xs. ys = y:::xs ∧ (x,xs) ∈ S)
-* We cannot remove infinite lists *)
+(* What is the coinductive version of mem? *)
 CoInductive comem:
-(* only correct for finite llist *)
-(* Every infinite list would satisfy comem *)
 [~hd]
   (!x xs. comem x (x:::xs))
 [~rest]
   (!x y xs. comem x xs ==> comem x (y:::xs))
 End
 
+comem_coind;
+(* we get the coinduction principle:
+* (x,ys) ∈ S ⇒
+* (∃xs. ys = x:::xs) ∨
+* (∃y xs. ys = y:::xs ∧ (x,xs) ∈ S) *)
+
+
+(* what happend when the second argument is not finite *)
 Theorem inf_imp_comem:
   !x l. ~(LFINITE l) ==> comem x l
 Proof
@@ -203,6 +218,8 @@ CoInductive not_mem:
   (!x. not_mem x [||]) /\
   (!x y xs. not_mem x xs /\ y <> x ==> not_mem x (y:::xs))
 End
+
+not_mem_coind;
 
 Theorem not_mem_LNTH:
   not_mem x l <=> !n. LNTH n l <> SOME x
@@ -232,8 +249,9 @@ Proof
   simp[LNTH_THM]
 QED
 
-(* Is this a coincidence? *)
-(* COMPL(gfp(f)) = lfp(COMPL o f o COMPL) *)
+(* Is this a coincidence that
+* you can define the negation of inductive predicate
+* as a coinductive predicate? *)
 Theorem mem_not_mem:
   mem x l <=> ~(not_mem x l)
 Proof
@@ -271,6 +289,7 @@ Proof
   irule $ cj 1 mem_rules
 QED
 
+(* Prove this with coinduction *)
 Theorem not_mem_inc2:
   ∀n. ¬EVEN n ⇒ not_mem n (inc2 0)
 Proof
@@ -293,7 +312,7 @@ Proof
   simp[]
 QED
 
-(* use inductive to proof *)
+(* Can you use induction to prove this using mem_not_mem? *)
 Theorem not_mem_inc2:
   ∀n. ¬EVEN n ⇒ not_mem n (inc2 0)
 Proof
@@ -365,6 +384,12 @@ Proof
   AP_TERM_TAC >>
   PURE_REWRITE_TAC[DECIDE``2=SUC 1``,LDROP] >>
   simp[]
+QED
+
+Theorem odds_example:
+  odds [|1;2;3;4;5|] = [|1;3;5|] ∧
+  odds [|0;1;2;3;4;5|] = [|0;2;4|] ∧
+Proof
 QED
 
 Theorem evens_to_odds:
@@ -455,6 +480,7 @@ Proof
   simp[odds,merge]
 QED
 
+(* LAPPEND is similarly to itree_bind *)
 LAPPEND;
 
 Theorem even_llist_LAPPEND:
@@ -478,7 +504,13 @@ Proof
   metis_tac[]
 QED
 
-(* remove NONE finitely many times *)
+Theorem mem_LAPPEND:
+  ∀x l. mem x l ⇒ mem x (LAPPEND l r)
+Proof
+QED
+
+(* remove NONE finitely many times.
+* Note that head on the left hand side cannot be NONE *)
 Inductive strip_NONE:
 [~some]
   strip_NONE (SOME x:::l) (SOME x:::l)
@@ -488,6 +520,9 @@ Inductive strip_NONE:
   strip_NONE l l' ⇒ strip_NONE (NONE:::l) l'
 End
 
+(* To make life easier. You can use
+* ``Cases_on `blah` using optoin_list_CASES``
+* to get all the three cases at once *)
 Theorem option_list_CASES:
   ∀ol. (∃h l. ol = SOME h:::l) ∨ (∃l. ol = NONE:::l) ∨ ol = [||]
 Proof
@@ -498,6 +533,10 @@ Proof
   simp[]
 QED
 
+(* weak bisimilar for llist *)
+(* We can ignore finitely many taus. But if there
+* are infinite taus, we want to keep it as it represents
+* divergent process *)
 CoInductive llist_wbisim:
 [~tau]
   llist_wbisim l l' ⇒ llist_wbisim (NONE:::l) (NONE:::l')
@@ -631,6 +670,7 @@ Proof
   metis_tac[]
 QED
 
+(* There are quite a lot of cases in this proof *)
 Theorem llist_wbisim_trans:
   llist_wbisim l l' ∧ llist_wbisim l' l'' ⇒
   llist_wbisim l l''
@@ -774,6 +814,7 @@ Proof
   rw[]
 QED
 
+(* you may need some lemmas about even_ollist and strip_NONE *)
 Theorem wbisim_imp_even_ollist:
   ∀l' l. even_ollist l ∧ llist_wbisim l l' ⇒ even_ollist l'
 Proof
