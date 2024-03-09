@@ -214,6 +214,28 @@ Proof
   fs[EVEN_MOD2]
 QED
 
+Theorem even_llist_prefix_SUC:
+  ∀n l. even_llist_prefix (SUC n) l ⇒ even_llist_prefix n l
+Proof
+  Induct_on `n` >>
+  rw[even_llist_prefix_def] >>
+  CASE_TAC >>
+  gvs[even_llist_prefix_def]
+QED
+
+Theorem even_llist_prefix_complete:
+  ∀n m l. even_llist_prefix n l ⇒ m < n ⇒ even_llist_prefix m l
+Proof
+  completeInduct_on `n` >>
+  rw[] >>
+  Cases_on `n` >- fs[] >>
+  drule even_llist_prefix_SUC >>
+  Cases_on `m = n'` >- rw[] >>
+  `m < n'` by DECIDE_TAC >>
+  last_x_assum $ qspec_then `n'` assume_tac >>
+  fs[]
+QED
+
 (* This is essentially MEM, but in a predicate form *)
 Inductive mem:
 [~hd]
