@@ -171,6 +171,49 @@ Proof
   fs[EVEN_MOD2]
 QED
 
+Definition even_llist_prefix_def:
+  even_llist_prefix 0 l = T ∧
+  even_llist_prefix (SUC k) l =
+    case l of
+    | [||] => T
+    | (h:::t) => EVEN h ∧ even_llist_prefix k t
+End
+
+Theorem even_llist_prefix_EQ_even_llist:
+  even_llist l ⇔ ∀k. even_llist_prefix k l
+Proof
+  simp[EQ_IMP_THM] >>
+  conj_tac
+  >- (
+    simp[PULL_FORALL] >>
+    qid_spec_tac`l` >>
+    Induct_on `k` >>
+    rw[even_llist_prefix_def] >>
+    CASE_TAC >>
+    first_x_assum $ strip_assume_tac o
+      SRULE[Once even_llist_cases] >>
+    metis_tac[]
+  ) >>
+  qid_spec_tac `l` >>
+  ho_match_mp_tac even_llist_coind >>
+  rw[] >>
+  Cases_on `l` >>
+  rw[] >>
+  pop_assum $ qspec_then `SUC k` assume_tac >>
+  fs[even_llist_prefix_def]
+QED
+
+Theorem even_llist_prefix_inc2:
+  ∀n. EVEN n ⇒ even_llist (inc2 n)
+Proof
+  simp[even_llist_prefix_EQ_even_llist,PULL_FORALL] >>
+  Induct_on `k` >>
+  rw[even_llist_prefix_def] >>
+  simp[Once $ GSYM inc2] >>
+  last_x_assum irule >>
+  fs[EVEN_MOD2]
+QED
+
 (* This is essentially MEM, but in a predicate form *)
 Inductive mem:
 [~hd]
@@ -921,5 +964,129 @@ Proof
   Cases_on `x` >>
   simp[] >>
   metis_tac[]
+QED
+
+Theorem LFINITE_LAPPEND_LLENGTH:
+  ∀x y n m. LFINITE x ∧ LFINITE y ∧
+  LLENGTH x = SOME n ∧ LLENGTH y = SOME m ⇒
+  LLENGTH (LAPPEND x y) = SOME (n + m)
+Proof
+  Induct_on `LFINITE` >>
+  rw[] >>
+  last_x_assum $ drule_all_then strip_assume_tac >>
+  simp[]
+QED
+
+Theorem LLENGTH_LAPPEND:
+  LLENGTH (LAPPEND x y) = OPTION_MAP2 $+ (LLENGTH x) (LLENGTH y)
+Proof
+  reverse $ Cases_on `LFINITE x`
+  >- (
+    drule_then (fn t => simp[t]) LAPPEND_INFINITE >>
+    simp[LLENGTH]
+  ) >>
+  reverse $ Cases_on `LFINITE y` >>
+  imp_res_tac LFINITE_HAS_LENGTH
+  >- simp[LLENGTH] >>
+  simp[] >>
+  metis_tac[LFINITE_LAPPEND_LLENGTH,ADD_COMM]
+QED
+
+open pairTheory;
+
+Theorem LUNFOLD_Fusion:
+  g o f = OPTION_MAP (f ## I) o h ⇒
+  LUNFOLD g o f = LUNFOLD h
+Proof
+  rw[PULL_FORALL,FUN_EQ_THM] >>
+  irule $ iffRL LUNFOLD_BISIMULATION >>
+  qexists `\fx x. fx = f x` >>
+  rw[] >>
+  Cases_on `h y2` >>
+  rw[] >>
+  Cases_on `x` >>
+  simp[]
+QED
+
+Theorem LUNFOLD_Fusion:
+  g o f = OPTION_MAP (f ## I) o h ⇒
+  LUNFOLD g o f = LUNFOLD h
+Proof
+  rw[PULL_FORALL,FUN_EQ_THM] >>
+  irule $ iffRL LLIST_BISIMULATION >>
+  qexists `\gl hl. ∃x. gl = LUNFOLD g (f x) ∧ hl = LUNFOLD h x` >>
+  rw[combinTheory.o_DEF]
+  >- metis_tac[] >>
+  Cases_on `LUNFOLD g (f x)` >>
+  rw[]
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once LUNFOLD] >>
+    gvs[AllCaseEqs()] >>
+    simp[LUNFOLD_THM]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once LUNFOLD] >>
+    gvs[AllCaseEqs()] >>
+    Cases_on `z` >>  
+    fs[PAIR_MAP_THM]
+  ) >>
+  Cases_on `h x` >>
+  simp[combinTheory.o_DEF]
+  >- (
+    qpat_x_assum `LUNFOLD g (f x) = _` $ strip_assume_tac o
+      SRULE[Once LUNFOLD] >>
+    gvs[AllCaseEqs()]
+  ) >>
+  Cases_on `x'` >>
+  simp[] >>
+  qpat_x_assum `LUNFOLD g (f x) = _` $ strip_assume_tac o
+    SRULE[Once LUNFOLD] >>
+  gvs[AllCaseEqs()] >>
+  metis_tac[]
+QED
+
+Theorem LUNFOLD_I:
+  LUNFOLD
+  (\l. case l of
+       | [||] => NONE
+       | (h:::t) => SOME (t,h)) = I
+Proof
+  rw[FUN_EQ_THM] >>
+  irule $ iffRL LLIST_BISIMULATION >>
+  qexists `\lx x. lx = LUNFOLD
+  (\l. case l of
+       | [||] => NONE
+       | (h:::t) => SOME (t,h)) x` >>
+  rw[] >>
+  CASE_TAC >>
+  gvs[] >>
+  simp[Once LUNFOLD]
+QED
+
+Theorem o_I_LUNFOLD:
+  f o g = I ⇒
+  LUNFOLD h o f = LUNFOLD (OPTION_MAP (g ## I) o h o f) 
+Proof
+  rw[FUN_EQ_THM] >>
+  irule $ iffRL LUNFOLD_BISIMULATION >>
+  qexists `\fx x. fx = f x` >>
+  rw[] >>
+  Cases_on `h (f y2)` >>
+  simp[] >>
+  Cases_on `x` >>
+  simp[]
+QED
+
+Theorem SURJ_LUNFOLD:
+  f o g = I ⇒
+  f = LUNFOLD (OPTION_MAP (g ## I) o
+        (\l. case l of
+             | [||] => NONE
+             | (h:::t) => SOME (t,h)) o f)
+Proof
+  rw[] >>
+  irule EQ_TRANS >>
+  irule_at (Pos last) o_I_LUNFOLD >>
+  simp[LUNFOLD_I]
 QED
 
