@@ -27,7 +27,7 @@ even_list_ind;
 
 (* The smallest set S that satifies F(S) ⊆ S *)
 (* ∀X. F(X) ⊆ X ⇒ S ⊆ X *) (* This is the induction principle *)
-(* ∀X. ([] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X) ⇒
+(* ∀X. [] ∈ X ∧ (!y x xs. y = x::xs ∧ EVEN x ∧ xs ∈ X ⇒ y ∈ X) ⇒
 * (∀x. x ∈ S ⇒ x ∈ X) *)
 
 Theorem even_list_example:
@@ -191,7 +191,6 @@ comem_coind;
 * (x,ys) ∈ S ⇒
 * (∃xs. ys = x:::xs) ∨
 * (∃y xs. ys = y:::xs ∧ (x,xs) ∈ S) *)
-
 
 (* what happend when the second argument is not finite *)
 Theorem inf_imp_comem:
@@ -507,6 +506,45 @@ QED
 Theorem mem_LAPPEND:
   ∀x l. mem x l ⇒ mem x (LAPPEND l r)
 Proof
+  Induct_on `mem` >>
+  rw[mem_rules]
+QED
+
+Theorem mem_LAPPEND_1_LFINITE:
+  ∀x l. LFINITE l ∧ mem x r ⇒ mem x (LAPPEND l r)
+Proof
+  Induct_on `LFINITE` >>
+  rw[mem_rules]
+QED
+
+Theorem LAPPEND_INFINITE:
+  ¬LFINITE l ⇒ LAPPEND l x = l
+Proof
+  rw[Once LLIST_BISIMULATION0] >>
+  qexists `\x y. ¬LFINITE y ∧ ?z. x = LAPPEND y z` >>
+  rw[]
+  >- metis_tac[] >>
+  last_x_assum kall_tac >>
+  Cases_on `ll4` >>
+  fs[] >>
+  metis_tac[]
+QED
+
+Theorem mem_LAPPEND_IMP:
+  ∀x l r. mem x (LAPPEND l r) ⇒ mem x l ∨ (LFINITE l ∧ mem x r)
+Proof
+  rw[] >>
+  Cases_on `mem x l` >>
+  simp[] >>
+  reverse $ Cases_on `LFINITE l`
+  >- metis_tac[LAPPEND_INFINITE] >>
+  simp[] >>
+  rpt $ pop_assum mp_tac >>
+  Induct_on `LFINITE` >>
+  rw[] >>
+  `h ≠ x` by fs[Once mem_cases] >>
+  `mem x (LAPPEND l r)` by fs[Once mem_cases] >>
+  metis_tac[mem_cases]
 QED
 
 (* remove NONE finitely many times.
@@ -882,3 +920,42 @@ Proof
   metis_tac[]  
 QED
 
+Theorem LAPPEND_ASSOC:
+  LAPPEND (LAPPEND x y) z = LAPPEND x (LAPPEND y z)
+Proof
+  simp[Once LLIST_STRONG_BISIMULATION] >>
+  qexists `\l1 l2. ?x y z.
+      l1 = LAPPEND (LAPPEND x y) z ∧
+      l2 = LAPPEND x (LAPPEND y z)` >>
+  rw[]
+  >- metis_tac[] >>
+  Cases_on `x` >>
+  simp[] >>
+  metis_tac[]
+QED
+
+Theorem LFINITE_LAPPEND_LLENGTH:
+  ∀x y n m. LFINITE x ∧ LFINITE y ∧
+  LLENGTH x = SOME n ∧ LLENGTH y = SOME m ⇒
+  LLENGTH (LAPPEND x y) = SOME (n + m)
+Proof
+  Induct_on `LFINITE` >>
+  rw[] >>
+  last_x_assum $ drule_all_then strip_assume_tac >>
+  simp[]
+QED
+
+Theorem LLENGTH_LAPPEND:
+  LLENGTH (LAPPEND x y) = OPTION_MAP2 $+ (LLENGTH x) (LLENGTH y)
+Proof
+  reverse $ Cases_on `LFINITE x`
+  >- (
+    drule_then (fn t => simp[t]) LAPPEND_INFINITE >>
+    simp[LLENGTH]
+  ) >>
+  reverse $ Cases_on `LFINITE y` >>
+  imp_res_tac LFINITE_HAS_LENGTH
+  >- simp[LLENGTH] >>
+  simp[] >>
+  metis_tac[LFINITE_LAPPEND_LLENGTH,ADD_COMM]
+QED
