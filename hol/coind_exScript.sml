@@ -82,6 +82,7 @@ QED
 Theorem even_llist_twos:
   even_llist twos
 Proof
+  cheat
 QED
 (* It turns out that you cannot prove it. Why? *)
 
@@ -191,6 +192,17 @@ comem_coind;
 * (x,ys) ∈ S ⇒
 * (∃xs. ys = x:::xs) ∨
 * (∃y xs. ys = y:::xs ∧ (x,xs) ∈ S) *)
+
+Theorem comem_inc2:
+  comem x (inc2 n)
+Proof
+  irule comem_coind >>
+  qexists `\x l. ?n. l = inc2 n` >>
+  reverse $ rw[] >- metis_tac[] >>
+  disj2_tac >>
+  simp[Once $ GSYM inc2] >>
+  metis_tac[]
+QED
 
 (* what happend when the second argument is not finite *)
 Theorem inf_imp_comem:
@@ -437,6 +449,23 @@ Proof
   simp[odds,evens,merge] >>
   Cases_on `t` >>
   simp[odds,merge,evens_to_odds]
+QED
+
+Theorem merge_odds_evens_LTAKE:
+  merge (odds l) (evens l) = l
+Proof
+  irule $ iffRL LTAKE_EQ >>
+  qid_spec_tac `l` >>
+  completeInduct_on `n` >>
+  rw[] >>
+  Cases_on `l` >>
+  simp[odds,evens,merge] >>
+  Cases_on `t` >>
+  simp[odds,evens,merge] >>
+  Cases_on `n` >>
+  simp[] >>
+  Cases_on `n'` >>
+  simp[]
 QED
 
 (* LAPPEND is similarly to itree_bind *)
