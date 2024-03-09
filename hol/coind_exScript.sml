@@ -387,8 +387,9 @@ QED
 
 Theorem odds_example:
   odds [|1;2;3;4;5|] = [|1;3;5|] ∧
-  odds [|0;1;2;3;4;5|] = [|0;2;4|] ∧
+  odds [|0;1;2;3;4;5|] = [|0;2;4|]
 Proof
+  simp[odds]
 QED
 
 Theorem evens_to_odds:
@@ -413,45 +414,14 @@ Theorem merge:
   (!(l:'a llist) t. merge [||] l = l) ∧
   (!(lh:'a) lt r. merge (lh:::lt) r = lh:::merge r lt)
 Proof
-  conj_asm1_tac
-  >- (
-    rw[Once LLIST_BISIMULATION] >>
-    qexists `\m l. case l of
-                   | [||] => m = [||]
-                   | h:::t => m = merge [||] (h:::t)` >>
-    rw[]
-    >- (
-      Cases_on `l` >>
-      simp[merge_def,Once LUNFOLD]
-    ) >>
-    Cases_on `ll4` >>
-    fs[] >>
-    simp[merge_def,Once LUNFOLD] >>
-    CASE_TAC >>
-    simp[Once LUNFOLD]) >>
-  rw[Once LLIST_BISIMULATION] >>
-  qexists `\m m'.
-    (?l l'. m = merge l l' ∧
-      case l of
-        | [||] => m' = l'
-        | h:::t => m' = h:::merge l' t)` >>
-  simp[] >>
   conj_tac
   >- (
-    irule_at (Pos hd) EQ_REFL >>
-    simp[]) >>
-  rw[] >>
-  Cases_on `l`
-  >- (
+    rw[Once LLIST_BISIMULATION] >>
+    qexists `\m l. m = merge [||] l` >>
+    rw[] >>
+    Cases_on `ll4` >>
     fs[] >>
-    Cases_on `l'` >>
-    fs[] >>
-    qexistsl [`[||]`,`t`] >>
-    simp[]) >>
-  fs[] >>
-  conj_tac >- simp[merge_def] >>
-  qexistsl [`l'`,`t`] >>
-  Cases_on`l'`>>
+    simp[merge_def,Once LUNFOLD]) >>
   fs[merge_def] >>
   simp[Once LUNFOLD]
 QED
@@ -460,23 +430,13 @@ Theorem merge_odds_evens:
   merge (odds l) (evens l) = l
 Proof
   simp[Once LLIST_BISIMULATION0] >>
-  qexists `\l' l. case l of
-    | [||] => l' = [||]
-    | [|h|] => l' = [|h|]
-    | x:::y:::t => l' = x:::merge (odds $ y:::t) (odds t)
-    ` >>
-  rw[]
-  >- (
-    Cases_on `l` >>
-    simp[odds,evens,merge] >>
-    Cases_on `t` >>
-    simp[odds,merge,evens_to_odds]) >>
+  qexists `\l' l.
+    merge (odds l) (evens l) = l'` >>
+  rw[] >>
   Cases_on `ll4` >>
-  fs[] >>
+  simp[odds,evens,merge] >>
   Cases_on `t` >>
-  fs[] >>
-  Cases_on `t'` >>
-  simp[odds,merge]
+  simp[odds,merge,evens_to_odds]
 QED
 
 (* LAPPEND is similarly to itree_bind *)
