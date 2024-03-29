@@ -80,15 +80,6 @@ Proof
   simp[]
 QED
 
-Theorem TC_RTC_IMP_TC:
-  TC R x y ∧ RTC R y z ⇒ TC R x z
-Proof
-  rpt strip_tac >>
-  gvs[RTC_CASES_TC] >>
-  irule $ cj 2 TC_RULES >>
-  metis_tac[]
-QED
-
 Definition gen_inf_desc_chain_def:
   (gen_inf_desc_chain r f 0 = 0) ∧ 
   gen_inf_desc_chain r f (SUC n) =
@@ -96,30 +87,33 @@ Definition gen_inf_desc_chain_def:
       $LEAST (\m. gn < m ∧ r (f m) (f gn))
 End
 
-Theorem WF_TC_decompose:
-  WF (R:'a -> 'a -> bool) ∧
-  (∀n. TC R x y  ==>
-  WF (R':'a -> 'a -> bool)
+Theorem WF_decompose:
+  WF R ∧
+  (∀f. (∀n. R' (f (SUC n)) (f n)) ⇒  ∃n. 0 < n ∧ R (f n) (f 0)) ⇒
+  WF R'
 Proof
-  rw[WF_IFF_WELLFOUNDED,wellfounded_def] >>
+  rw[WF_IFF_WELLFOUNDED,wellfounded_def,PULL_EXISTS] >>
   spose_not_then strip_assume_tac >>
   last_x_assum mp_tac >>
   simp[] >>
   qexists `f o gen_inf_desc_chain R f` >>
-  Induct_on `n` >>
-  >- (
-    rw[gen_inf_desc_chain_def] >>
-    `(\x. R (f x) (f 0)) ($LEAST (\m. 0 < m ∧ R (f m) (f 0)))`
-      suffices_by simp[] >>
-    irule LEAST_ELIM >>
-    rw[] >>
-    cheat
-  ) >>
-  simp[Once gen_inf_desc_chain_def] >>
-  fs[] >>
-  qpat_abbrev_tac `gsn = gen_inf_desc_chain _ _ (SUC n)` >>
+  rw[Once gen_inf_desc_chain_def] >>
+  qpat_abbrev_tac `gsn = gen_inf_desc_chain _ _ n` >>
   `(\x. R (f x) (f gsn)) ($LEAST (\m. gsn < m ∧ R (f m) (f gsn)))`
       suffices_by simp[] >>
   irule LEAST_ELIM >>
   rw[] >>
+  last_x_assum $ qspecl_then [`\n. f (n + gsn)`] mp_tac >>
+  rw[] >>
+  pop_assum mp_tac >>
+  impl_tac
+  >- (
+    rw[] >>
+    last_x_assum $ qspec_then `gsn + n'` mp_tac >>
+    simp[arithmeticTheory.ADD1]
+  ) >>
+  rw[] >>
+  first_x_assum $ irule_at (Pos last) >>
+  DECIDE_TAC
 QED
+
