@@ -35,7 +35,7 @@ Proof
 QED
 
 Theorem WF_TC_SUBSET:
-  WF R ∧ 
+  WF R ∧
   (∀x y. R' x y ⇒ TC R x y) ⇒
   WF R'
 Proof
@@ -81,7 +81,7 @@ Proof
 QED
 
 Definition gen_inf_desc_chain_def:
-  (gen_inf_desc_chain r f 0 = 0) ∧ 
+  (gen_inf_desc_chain r f 0 = 0) ∧
   gen_inf_desc_chain r f (SUC n) =
     let gn = gen_inf_desc_chain r f n in
       $LEAST (\m. gn < m ∧ r (f m) (f gn))
@@ -116,4 +116,98 @@ Proof
   first_x_assum $ irule_at (Pos last) >>
   DECIDE_TAC
 QED
+
+Definition the_measure_def:
+  the_measure R x =
+  if WF R ∧ FINITE {y | R y x}
+  then
+    MAX_SET (IMAGE (the_measure R) {y | R y x}) + 1
+  else 0
+Termination
+  qexists `\y x. FST y = FST x ∧ WF (FST x) ∧ (FST x) (SND y) (SND x)` >>
+  simp[] >>
+  qspecl_then [`WF`,`FST`,`I`,`SND`] irule WF_PULL >>
+  rw[]
+End
+
+Theorem the_measure_positive:
+  WF R ∧ (∀x. FINITE {y | R y x}) ⇒ ∀x. 0 < the_measure R x
+Proof
+  strip_tac >>
+  `!R' x. R' = R ==> 0 < the_measure R x` suffices_by rw[] >>
+  ho_match_mp_tac the_measure_ind >>
+  rw[] >>
+  gvs[] >>
+  simp[Once the_measure_def]
+QED
+
+Theorem the_measure_LT:
+  WF R ∧ FINITE {y | R y x} ==> R y x ⇒ the_measure R y < the_measure R x
+Proof
+  rw[] >>
+  PURE_REWRITE_TAC[GSYM arithmeticTheory.GREATER_DEF] >>
+  simp[Once the_measure_def] >>
+  simp[arithmeticTheory.GREATER_DEF,GSYM LE_LT1] >>
+  irule in_max_set >>
+  simp[]
+QED
+
+Theorem FINITE_UB_EXISTS:
+  FINITE s ⇒ ∃n. ∀x. x ∈ s ⇒ x ≤ n
+Proof
+  rw[] >>
+  qexists `MAX_SET s` >>
+  rw[] >>
+  irule in_max_set >>
+  simp[]
+QED
+
+Theorem MAX_SET_LEAST_UB:
+  FINITE s ⇒
+    MAX_SET s = LEAST n. (∀x. x ∈ s ⇒ x ≤ n)
+Proof
+  rw[] >>
+  irule LEAST_ELIM >>
+  reverse $ rw[]
+  >- metis_tac[FINITE_UB_EXISTS] >>
+  irule LESS_EQUAL_ANTISYM >>
+  conj_tac
+  >- (
+    Cases_on `n` >> simp[] >>
+    irule in_max_set >>
+    simp[] >>
+    last_x_assum $ qspec_then `n'` mp_tac >>
+    rw[] >>
+    `SUC n' ≤ x` by DECIDE_TAC >>
+    last_x_assum drule >>
+    metis_tac[LESS_EQUAL_ANTISYM]
+  ) >>
+  drule MAX_SET_DEF >>
+  Cases_on `s = EMPTY` >>
+  rw[]
+QED
+
+(*
+* implement the_measure with LEAST instead of MAX_SET
+Definition the_other_measure_def:
+  the_other_measure R x =
+  if WF R
+  then if ∃n. (∀y. R y x ⇒ the_other_measure R y < n) then
+    LEAST n. ∀y. R y x ⇒ the_other_measure R y < n
+    else 0
+  else 0
+Termination
+  qexists `\y x. FST y = FST x ∧ WF (FST x) ∧ (FST x) (SND y) (SND x)` >>
+  simp[] >>
+  qspecl_then [`WF`,`FST`,`I`,`SND`] irule WF_PULL >>
+  rw[]
+End
+
+Theorem the_other_measure_LT:
+  WF R ∧ ARB ==>
+    R y x ⇒ the_other_measure R y < the_other_measure R x
+Proof
+  cheat
+QED
+*)
 

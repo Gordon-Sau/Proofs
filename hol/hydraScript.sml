@@ -1,6 +1,7 @@
 open HolKernel boolLib bossLib BasicProvers dep_rewrite;
-open pred_setTheory relationTheory listTheory pairTheory;
-open rich_listTheory;
+open pred_setTheory relationTheory combinTheory pairTheory;
+open arithmeticTheory prim_recTheory;
+open listTheory rich_listTheory sortingTheory;
 
 val _ = new_theory "hydra";
 
@@ -22,9 +23,9 @@ Inductive RemoveLeaf:
   RemoveLeaf rs rs' ⇒ RemoveLeaf (r::rs) (r::rs')
 End
 
-Inductive RemoveRootLeaf:
+Inductive RemoveChildLeaf:
   RemoveLeaf rs rs' ⇒
-    RemoveRootLeaf (Node rs) (Node rs')
+    RemoveChildLeaf (Node rs) (Node rs')
 End
 
 Theorem RemoveLeaf_append:
@@ -46,7 +47,7 @@ QED
 
 Inductive Spawn:
 [~head:]
-  RemoveRootLeaf t t' ⇒
+  RemoveChildLeaf t t' ⇒
     Spawn (t::ts) (t'::(ts ++ REPLICATE n t'))
 [~next:]
   Spawn ts ts' ⇒ Spawn (t::ts) (t::ts')
@@ -72,7 +73,7 @@ End
 
 Inductive SimpleSpawn:
 [~head:]
-  RemoveRootLeaf t t' ⇒
+  RemoveChildLeaf t t' ⇒
     SimpleSpawn (t::ts) (t'::(ts ++ REPLICATE n Leaf))
 [~next:]
   SimpleSpawn ts ts' ⇒ SimpleSpawn (t::ts) (t::ts')
@@ -80,26 +81,27 @@ End
 
 Theorem Rose_size_def = fetch "-" "Rose_size_def";
 
-Definition default_EL_def:
-  default_EL d n l = if n < LENGTH l then EL n l else d
-End
+(* while LLEX is not WF, I think LLEX on a sorted list should be WF *)
+Theorem LLEX_SORTED_WF:
+  WF (λl l'. SORTED $>= l ∧ SORTED $>= l' ∧ LLEX $< l l')
+Proof
+  rw[WF_DEF,PULL_EXISTS] >>
+  Cases_on `∃l. B l ∧ ¬SORTED $>= l`
+  >- (rw[] >> qexists `l` >> simp[]) >>
+  pop_assum mp_tac >> rw[GSYM IMP_DISJ_THM] >>
+  `∃l'. B l' ∧ ∀l. B l ⇒ ¬LLEX $< l l'` suffices_by (
+    rw[] >>
+    first_assum $ irule_at (Pos hd) >> rw[] >>
+    metis_tac[]) >>
+  cheat
+QED
 
-Overload EL0 = ``default_EL 0``;
+Definition Rose_depths_def:
+  Rose_depths_l ts = FLAT (MAP Rose_depths ts) ∧
 
-Definition LEX_LIST_def:
-  LEX_LIST cmp z (x::xs) (y::ys) =
-    (cmp x y ∨ (x = y ∧ LEX_LIST cmp z xs ys)) ∧
-  LEX_LIST cmp z [] (y::ys) = cmp z y ∧
-  LEX_LIST cmp z (x::xs) [] = cmp x z ∧
-  LEX_LIST cmp z _ _ = F
-End
-
-Definition Rose_depth_count_def:
-  Rose_depth_count_l ts = FLAT (MAP Rose_depth_count ts) ∧
-
-  Rose_depth_count (Node []) = [1n] ∧
-  Rose_depth_count (Node ts) =
-    MAP ($+ 1) $ Rose_depth_count_l ts
+  Rose_depths (Node []) = [1n] ∧
+  Rose_depths (Node ts) =
+    MAP ($+ 1) $ Rose_depths_l ts
 Termination
   WF_REL_TAC `measure 
     (λt. case t of
@@ -130,44 +132,29 @@ Proof
   simp[flip_flip]
 QED
 
-Theorem Rose_depth_count_positive:
-  (∀(ts:Rose list). EVERY (λx. 0 < x) (Rose_depth_count_l ts)) ∧ 
-  (∀(t:Rose). EVERY (λx. 0 < x) (Rose_depth_count t))
-Proof
-  ho_match_mp_tac Rose_depth_count_ind >>
-  rw[Rose_depth_count_def] >>
-  simp[EVERY_FLAT,EVERY_MAP,EVERY_MEM]
-QED
-
-Theorem LEX_FST_SND:
-  (f LEX g) p q ⇔ f (FST p) (FST q) ∨ (FST p = FST q ∧ g (SND p) (SND q))
-Proof
-  Cases_on `p` >>
-  Cases_on `q` >>
-  simp[LEX_DEF]
-QED
-
-
-Theorem SimpleSpawnNode_Rose_depth_count:
+Theorem SimpleSpawnNode_Rose_depths:
   (∀ys xs.
     GenericSpawnNode_l SimpleSpawn ys xs ⇒
-      _ (Rose_depth_count_l xs) (Rose_depth_count_l ys)) ∧
+      _ (Rose_depths_l xs) (Rose_depths_l ys)) ∧
   (∀y x.
     GenericSpawnNode SimpleSpawn y x ⇒
-      _ (Rose_depth_count x) (Rose_depth_count y))
+      _ (Rose_depths x) (Rose_depths y))
 Proof
   ho_match_mp_tac GenericSpawnNode_ind >>
-  rw[Rose_depth_count_LEX_LT] >>
-  >- cheat
-  simp[
+  rw[Rose_depths_LEX_LT] >>
+  cheat
 QED
 
+(* https://en.wikipedia.org/wiki/Hydra_game#Introduction
+* The proof described in wiki is do an induction on the depth
+* but I think it should be possible to do it without the induction
+* by passing a list of depths and define the WF order on it *)
 Theorem WF_Simple_Hydra:
-  WF (flip $ GenericSpawnNode SimpleSpawn ∪ᵣRemoveRootLeaf)
+  WF (flip $ GenericSpawnNode SimpleSpawn ∪ᵣRemoveChildLeaf)
 Proof
   simp[flip_TC,WF_TC_EQN] >>
   irule WF_SUBSET >>
-  qexists `inv_image _ Rose_depth_count` >>
+  qexists `inv_image (λl l'. SORTED $>= l ∧ SORTED $>= l' ∧ LLEX $< l l') Rose_depths` >>
   reverse conj_tac
   >- (
     irule WF_inv_image >>
@@ -175,8 +162,48 @@ Proof
     simp[]) >>
   CONV_TAC SWAP_FORALL_CONV >>
   simp[RUNION,DISJ_IMP_THM,FORALL_AND_THM] >>
-  conj_tac
+  cheat
 QED
 
+Theorem WF_Hydra:
+  WF (flip $ GenericSpawnNode Spawn ∪ᵣRemoveChildLeaf)
+Proof
+  
+QED
+
+Definition the_measure_def:
+  the_measure R x =
+  if WF R ∧ FINITE {y | R y x}
+  then
+    MAX_SET (IMAGE (the_measure R) {y | R y x}) + 1
+  else 0
+Termination
+  qexists `\y x. FST y = FST x ∧ WF (FST x) ∧ (FST x) (SND y) (SND x)` >>
+  simp[] >>
+  qspecl_then [`WF`,`FST`,`I`,`SND`] irule WF_PULL >>
+  rw[]
+End
+
+Theorem the_measure_positive:
+  WF R ∧ (∀x. FINITE {y | R y x}) ⇒ ∀x. 0 < the_measure R x
+Proof
+  strip_tac >>
+  `!R' x. R' = R ==> 0 < the_measure R x` suffices_by rw[] >>
+  ho_match_mp_tac the_measure_ind >>
+  rw[] >>
+  gvs[] >>
+  simp[Once the_measure_def]
+QED
+
+Theorem the_measure_LT:
+  WF R ∧ FINITE {y | R y x} ==> R y x ⇒ the_measure R y < the_measure R x
+Proof
+  rw[] >>
+  PURE_REWRITE_TAC[GSYM arithmeticTheory.GREATER_DEF] >>
+  simp[Once the_measure_def] >>
+  simp[arithmeticTheory.GREATER_DEF,GSYM LE_LT1] >>
+  irule in_max_set >>
+  simp[]
+QED
 
 val _ = export_theory();
