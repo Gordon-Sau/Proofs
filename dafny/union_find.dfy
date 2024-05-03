@@ -6,40 +6,50 @@ predicate well_formed_elems(e:seq<nat>)
   forall k:nat :: k < |e| ==> e[k] < |e|
 }
 
-predicate representative(e:seq<nat>,x:nat,y:nat,r:nat)
+predicate repr(e:seq<nat>,x:nat,y:nat,r:nat)
 decreases r
 requires well_formed_elems(e)
-ensures x < |e| && y < |e| && e[y] == y
+ensures repr(e,x,y,r) ==> x < |e| && y < |e| && e[y] == y
 {
   (x < |e| && x == y && r == 0 && e[y] == y) ||
-  (x < |e| && e[x] != x && representative(e,e[x],y,r-1))
+  (x < |e| && e[x] != x && r > 0 && repr(e,e[x],y,r-1))
 }
 
-lemma representative_unique(e:seq<nat>,x:nat)
+lemma repr_unique(e:seq<nat>,x:nat,y:nat,r:nat,y':nat,r':nat)
 requires well_formed_elems(e)
-ensures forall y,r,y',r' :: representative_unique(e,x,y,r) && representative_unique(e,x,y',r') ==>
-  y == y' && r == r'
+requires repr(e,x,y,r) && repr(e,x,y',r')
+ensures y' == y && r' == r
+decreases r,r'
 {
+  assert x < |e|;
+  if e[x] == x
+  {
+  } else
+  {
+    assert r > 0;
+    assert r' > 0;
+    repr_unique(e,e[x],y,r-1,y',r'-1);
+  }
 }
 
-predicate equiv_repr(e:seq<nat>,x:nat,y:nat)
+ghost predicate equiv_repr(e:seq<nat>,x:nat,y:nat)
 requires well_formed_elems(e)
 {
-  exists i,r,r' ::
-    representative(e,x,i,r) && representative(e,y,i,r')
+  exists i,r,r' :: repr(e,x,i,r) && repr(e,y,i,r')
 }
 
-predicate max_rank(e:seq<nat>,y:nat,r:nat)
+ghost predicate max_rank(e:seq<nat>,y:nat,r:nat)
 requires well_formed_elems(e)
 {
-  exists x,r :: x < |e| && reprsentative(e,x,y,r) &&
-  (forall z,r' :: z < |e| && reprsentative(e,z,y,r') ==> r' <= r)
+  exists x:nat :: x < |e| && repr(e,x,y,r) && (
+    forall z:nat,r':nat :: z < |e| && repr(e,z,y,r') ==> r' <= r)
 }
 
-predicate repr_union(e:seq<nat>,x:nat,y:nat,new_e:seq<nat>)
+ghost predicate repr_union(e:seq<nat>,x:nat,y:nat,new_e:seq<nat>)
 requires well_formed_elems(e)
 {
-  (forall x',y' :: equiv_repr(e,x',x) && equiv_repr(e,y',y) ==>
+  well_formed_elems(new_e) &&
+  (forall x':nat,y':nat :: equiv_repr(e,x',x) && equiv_repr(e,y',y) ==>
     equiv_repr(new_e,x',x) && equiv_repr(new_e,y',y) && equiv_repr(new_e,x',y')) &&
   (forall z :: !equiv_repr(e,z,x) && !equiv_repr(e,z,y) ==>
     forall z' :: equiv_repr(e,z,z') <==> equiv_repr(new_e,z,z'))
