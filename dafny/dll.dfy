@@ -89,8 +89,12 @@ class CircularLinkedList<T> {
   requires |other.Nodes| > 0
   requires |Nodes| > 0
   requires forall i, j :: 0 <= i < |Nodes| && 0 <= j < |other.Nodes| ==> Nodes[i] != other.Nodes[j]
-  ensures Nodes == old(Nodes) + other.Nodes
+  ensures Nodes == old(Nodes) + old(other.Nodes)
   ensures Valid()
+  ensures other.Nodes == old(other.Nodes)
+  ensures forall n :: (n in Nodes || n in other.Nodes) ==>
+    n.payload == old(n.payload)
+  ensures to_vals(Nodes) == to_vals(old(Nodes)) + to_vals(old(other.Nodes))
   modifies other.tail`R, other.head`L, this`tail, this.tail`R, this.head`L, this`Nodes
   {
     tail.R := other.head;
@@ -107,6 +111,11 @@ class CircularLinkedList<T> {
   ensures Valid()
   ensures rest.Valid()
   ensures old(Nodes) == Nodes + [node] + rest.Nodes
+  ensures node.payload == old(node.payload) && node.L == old(node.L) && node.R == old(node.R)
+  ensures fresh(rest)
+  ensures forall n :: n in rest.Nodes ==> allocated(n) && n in old(Nodes)
+  ensures forall n :: n in old(Nodes) ==> n.payload == old(n.payload)
+  ensures to_vals(Nodes + [node] + rest.Nodes) == to_vals(old(Nodes))
   modifies this`head,this`tail,this`Nodes,this.head`L,this.tail`R,node.L`R,node.R`L
   {
     rest := new CircularLinkedList<T>();
